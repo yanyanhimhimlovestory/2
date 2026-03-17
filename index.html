@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>{Yan&Him 我想和你有所事事}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <script type="module">
+        import { initializeApp } from "https://gs.jurieo.com/gemini/gstatic/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://gs.jurieo.com/gemini/gstatic/firebasejs/10.7.1/firebase-firestore.js";
+
+        // ==========================================
+        // ⚠️ 請在這裡替換成你自己的 Firebase 配置 !!!
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "你的_API_KEY",
+            authDomain: "你的_PROJECT_ID.firebaseapp.com",
+            projectId: "你的_PROJECT_ID",
+            storageBucket: "你的_PROJECT_ID.appspot.com",
+            messagingSenderId: "你的_SENDER_ID",
+            appId: "你的_APP_ID"
+        };
+        // ==========================================
+
+        // 初始化 Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        
+        // 這是我們在雲端唯一的資料文件，存放所有狀態
+        const docRef = doc(db, "yan_him_app", "shared_state");
+
+        // 全域狀態 (預設值)
+        window.state = {
+            wishes: [],
+            fishItems: [],
+            matchaItems: [],
+            nextTripDate: '2026-05-20', // 你可以手動改這個日期
+            currentSpecialTab: 'fish'
+        };
+
+        // --- 核心：雲端數據監聽 ---
+        // 當雲端資料有任何變動時（例如對方新增了東西），這裡會立刻觸發，並更新你的手機畫面！
+        onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+                window.state = docSnap.data();
+                renderAll(); // 重新渲染整個介面
+                console.log("雲端數據已更新！");
+            } else {
+                // 如果是第一次使用，將預設狀態上傳到雲端建立文件
+                setDoc(docRef, window.state);
+            }
+        });
+
+        // 儲存到雲端的函數
+        window.syncToCloud = async () => {
+            try {
+                await setDoc(docRef, window.state);
+                console.log("資料已同步到雲端");
+            } catch (e) {
+                console.error("同步失敗:", e);
+                alert("雲端同步失敗，請檢查 Firebase 設定或網路。");
+            }
+        };
+
+        // 頁面初次載入時
+        window.addEventListener('load', () => {
+            // 不需要特別做什麼，onSnapshot 會自動處理第一次載入
+            lucide.createIcons();
+        });
+    </script>
+
+    <style>
+        @import url('https://gs.jurieo.com/gemini/fonts-googleapis/css2?family=Noto+Serif+TC:wght@500;700&family=Noto+Sans+TC:wght@300;400;500&display=swap');
+        :root { --sakura-pink: #fce4ec; --matcha-green: #81a56d; --rice-paper: #f9f7f2; }
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: var(--rice-paper); color: #4a4a4a; padding-bottom: 90px; -webkit-font-smoothing: antialiased; }
+        .title-font { font-family: 'Noto Serif TC', serif; }
+        .glass-nav { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); border-top: 1px solid rgba(129, 165, 109, 0.1); }
+        .tier-s { background-color: #ff7eb9; color: white; }
+        .tier-a { background-color: #ffb3ba; color: white; }
+        .tier-b { background-color: #ffdfba; color: #5a5a5a; }
+        .tier-c { background-color: #ffffba; color: #5a5a5a; }
+        .tier-f { background-color: #baffc9; color: #5a5a5a; }
+        .custom-shadow { box-shadow: 0 8px 20px rgba(129, 165, 109, 0.08); }
+        .tab-active { color: var(--matcha-green); border-bottom: 3px solid var(--matcha-green); }
+        ::-webkit-scrollbar { display: none; }
+        /* 針對 Yan/Him 選擇按鈕的樣式 */
+        .who-btn-active { background-color: #81a56d !important; color: white !important; border-color: #81a56d !important;}
+    </style>
+</head>
+<body>
+
+    <div id="app">
+        <section id="page-home" class="page">
+            <div class="relative h-[48vh] w-full overflow-hidden">
+                <img src="cover.jpg" alt="Yan&Him 雷門合照" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1516205651411-aef33a44f7c2?auto=format&fit=crop&q=80&w=1000'">
+                <div class="absolute inset-0 bg-gradient-to-t from-[#f9f7f2] via-transparent to-transparent"></div>
+                <div class="absolute bottom-8 left-0 w-full px-6 text-center">
+                    <h1 class="title-font text-4xl font-bold text-[#4a4a4a] tracking-tight">{Yan&Him}</h1>
+                    <p class="title-font text-xl text-[#81a56d] mt-2 tracking-wide">我想和你有所事事</p>
+                </div>
+            </div>
+
+            <div class="px-6 space-y-7 -mt-4 relative z-10">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-white p-5 rounded-3xl custom-shadow text-center">
+                        <p class="text-[10px] text-gray-400 tracking-widest mb-1 uppercase">NEXT TRIP</p>
+                        <div id="countdown" class="text-2xl font-bold text-[#81a56d]">-- Days</div>
+                    </div>
+                    <div class="bg-white p-5 rounded-3xl custom-shadow text-center">
+                        <p class="text-[10px] text-gray-400 tracking-widest mb-1 uppercase">Wishes Done</p>
+                        <div id="completion-rate" class="text-2xl font-bold text-[#ffb3ba]">0%</div>
+                    </div>
+                </div>
+
+                <div class="bg-white/50 p-3 rounded-3xl border border-pink-50/50">
+                    <h2 class="flex items-center text-sm font-bold mb-4 px-2 text-gray-500">
+                        <i data-lucide="sparkles" class="w-4 h-4 mr-2 text-pink-300"></i> 最近新增
+                    </h2>
+                    <div id="recent-wishes" class="space-y-3">
+                        </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="page-list" class="page hidden p-6">
+            <div class="flex justify-between items-end mb-7">
+                <div>
+                    <h2 class="text-2xl font-bold title-font text-[#4a4a4a]">願望清單</h2>
+                    <p class="text-xs text-gray-400 mt-1">想和你一起完成的事</p>
+                </div>
+                <button onclick="toggleModal('wish-modal')" class="bg-[#ffb3ba] text-white w-14 h-14 rounded-3xl shadow-lg flex items-center justify-center shadow-pink-100">
+                    <i data-lucide="plus" class="w-7 h-7"></i>
+                </button>
+            </div>
+            <div id="wish-items" class="space-y-4"></div>
+        </section>
+
+        <section id="page-special" class="page hidden p-6">
+            <div class="flex space-x-6 mb-7">
+                <button id="btn-fish" onclick="switchTab('fish')" class="text-2xl font-bold title-font transition-all">🐟 魚魚</button>
+                <button id="btn-matcha" onclick="switchTab('matcha')" class="text-2xl font-bold title-font transition-all">🍵 抹茶</button>
+            </div>
+
+            <button onclick="openSpecialModal()" class="w-full py-5 mb-8 bg-white border-2 border-dashed border-[#81a56d]/30 rounded-3xl text-gray-400 flex justify-center items-center text-sm shadow-sm">
+                <i data-lucide="plus-circle" class="mr-2 w-5 h-5"></i> 新增食評紀錄
+            </button>
+
+            <div id="tier-list-container" class="space-y-4">
+                </div>
+        </section>
+    </div>
+
+    <nav class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] glass-nav h-16 rounded-3xl flex justify-around items-center px-4 z-50 shadow-xl border border-white/50">
+        <button onclick="showPage('home')" class="nav-btn flex flex-col items-center text-[#81a56d]" data-id="home">
+            <i data-lucide="home" class="w-6 h-6"></i>
+        </button>
+        <button onclick="showPage('list')" class="nav-btn flex flex-col items-center text-gray-300" data-id="list">
+            <i data-lucide="heart" class="w-6 h-6"></i>
+        </button>
+        <button onclick="showPage('special')" class="nav-btn flex flex-col items-center text-gray-300" data-id="special">
+            <i data-lucide="utensils" class="w-6 h-6"></i>
+        </button>
+    </nav>
+
+    <div id="wish-modal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden z-[60] flex items-center justify-center p-8 transition-opacity duration-300">
+        <div class="bg-white w-full rounded-[2.5rem] p-7 shadow-2xl scale-100 transition-transform duration-300">
+            <h3 class="text-xl font-bold mb-6 title-font text-center text-gray-700">是誰許下的願望？🌸</h3>
+            
+            <div class="flex space-x-3 mb-6">
+                <button id="who-yan" onclick="selectWho('Yan')" class="flex-1 py-4 border-2 border-gray-100 bg-gray-50 rounded-2xl font-bold text-gray-500 transition-all text-sm">Yan</button>
+                <button id="who-him" onclick="selectWho('Him')" class="flex-1 py-4 border-2 border-gray-100 bg-gray-50 rounded-2xl font-bold text-gray-500 transition-all text-sm">Him</button>
+            </div>
+            
+            <input id="wish-input" type="text" placeholder="想一起做什麼事呢？" class="w-full p-4 bg-gray-50 rounded-2xl mb-6 outline-none border border-gray-100 focus:border-pink-200 focus:bg-white transition-all">
+            
+            <div class="flex space-x-3">
+                <button onclick="toggleModal('wish-modal')" class="flex-1 py-4 text-gray-400 font-medium">取消</button>
+                <button onclick="addWishFromCloud()" class="flex-1 py-4 bg-[#ffb3ba] text-white rounded-2xl font-bold shadow-lg shadow-pink-100 flex justify-center items-center">
+                    <i data-lucide="heart" class="w-4 h-4 mr-2"></i> 收藏願望
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="special-modal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden z-[60] flex items-center justify-center p-8">
+        <div class="bg-white w-full rounded-[2.5rem] p-7 shadow-2xl">
+            <h3 id="special-modal-title" class="text-lg font-bold mb-5 title-font text-gray-700">新增紀錄</h3>
+            <input id="special-name" type="text" placeholder="店名 / 產品名稱" class="w-full p-4 bg-gray-50 rounded-2xl mb-4 border border-gray-100 focus:border-green-200">
+            <select id="special-tier" class="w-full p-4 bg-gray-50 rounded-2xl mb-6 border border-gray-100 text-sm">
+                <option value="S">Tier S (必食!)</option>
+                <option value="A">Tier A (好好味)</option>
+                <option value="B">Tier B (普通)</option>
+                <option value="C">Tier C (一般般)</option>
+                <option value="F">狗也不 (不推薦)</option>
+            </select>
+            <div class="flex space-x-3">
+                <button onclick="toggleModal('special-modal')" class="flex-1 py-4 text-gray-400 font-medium">取消</button>
+                <button onclick="addSpecialItemFromCloud()" class="flex-1 py-4 bg-[#81a56d] text-white rounded-2xl font-bold">加入 Tier</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 介面控制 ---
+        function showPage(pageId) {
+            document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+            document.getElementById('page-' + pageId).classList.remove('hidden');
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.style.color = btn.dataset.id === pageId ? '#81a56d' : '#d1d5db');
+            lucide.createIcons();
+        }
+
+        function toggleModal(id) {
+            const modal = document.getElementById(id);
+            modal.classList.toggle('hidden');
+        }
+
+        // --- 願望管理 ---
+        let selectedWho = 'Yan'; // 預設
+
+        function selectWho(who) {
+            selectedWho = who;
+            document.getElementById('who-yan').className = who === 'Yan' ? 'flex-1 py-4 border-2 border-[#81a56d] bg-green-50 rounded-2xl font-bold text-[#81a56d] transition-all text-sm who-btn-active' : 'flex-1 py-4 border-2 border-gray-100 bg-gray-50 rounded-2xl font-bold text-gray-500 transition-all text-sm';
+            document.getElementById('who-him').className = who === 'Him' ? 'flex-1 py-4 border-2 border-[#81a56d] bg-green-50 rounded-2xl font-bold text-[#81a56d] transition-all text-sm who-btn-active' : 'flex-1 py-4 border-2 border-gray-100 bg-gray-50 rounded-2xl font-bold text-gray-500 transition-all text-sm';
+        }
+
+        async function addWishFromCloud() {
+            const input = document.getElementById('wish-input');
+            if (!input.value) return;
+            // 更新狀態
+            window.state.wishes.unshift({ 
+                id: Date.now(), 
+                text: input.value, 
+                who: selectedWho, // 記錄是誰許願
+                completed: false 
+            });
+            // 重置 Modal
+            input.value = '';
+            selectWho('Yan'); // 重置選擇
+            toggleModal('wish-modal');
+            // 同步到雲端
+            await window.syncToCloud();
+        }
+
+        async function toggleWishFromCloud(id) {
+            const wish = window.state.wishes.find(w => w.id === id);
+            wish.completed = !wish.completed;
+            wish.completedDate = wish.completed ? new Date().toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'}) : null;
+            await window.syncToCloud();
+        }
+
+        // --- Tier List 管理 ---
+        function switchTab(type) {
+            window.state.currentSpecialTab = type;
+            renderSpecial();
+        }
+
+        function openSpecialModal() {
+            const typeText = window.state.currentSpecialTab === 'fish' ? '魚魚' : '抹茶';
+            document.getElementById('special-modal-title').innerText = `新增 ${typeText} 紀錄`;
+            toggleModal('special-modal');
+        }
+
+        async function addSpecialItemFromCloud() {
+            const name = document.getElementById('special-name').value;
+            const tier = document.getElementById('special-tier').value;
+            if (!name) return;
+            const list = window.state.currentSpecialTab === 'fish' ? window.state.fishItems : window.state.matchaItems;
+            list.push({ name, tier });
+            document.getElementById('special-name').value = '';
+            toggleModal('special-modal');
+            await window.syncToCloud();
+        }
+
+        // --- 渲染功能 ---
+        function renderAll() {
+            renderHome();
+            renderWishes();
+            renderSpecial();
+            lucide.createIcons();
+        }
+
+        function renderHome() {
+            // 倒數
+            const diff = Math.ceil((new Date(window.state.nextTripDate) - new Date()) / (1000 * 60 * 60 * 24));
+            document.getElementById('countdown').innerText = diff > 0 ? `${diff} Days` : 'Trip Now!';
+            // 完成率
+            const done = window.state.wishes.filter(w => w.completed).length;
+            const rate = window.state.wishes.length === 0 ? 0 : Math.round((done / window.state.wishes.length) * 100);
+            document.getElementById('completion-rate').innerText = `${rate}%`;
+            // 最近
+            const recentContainer = document.getElementById('recent-wishes');
+            recentContainer.innerHTML = window.state.wishes.slice(0, 3).map(w => `
+                <div class="bg-white/80 p-4 rounded-2xl flex justify-between items-center mx-1 shadow-sm border border-gray-50/50">
+                    <span class="text-xs font-bold text-gray-700">${w.text}</span>
+                    <span class="text-[9px] px-2 py-0.5 rounded-full bg-pink-50 text-pink-300 font-bold uppercase tracking-wider">${w.who}</span>
+                </div>
+            `).join('') || '<p class="text-center text-gray-400 py-4 text-xs">新增願望來開始吧 ✨</p>';
+        }
+
+        function renderWishes() {
+            const container = document.getElementById('wish-items');
+            container.innerHTML = window.state.wishes.map(w => `
+                <div onclick="toggleWishFromCloud(${w.id})" class="bg-white p-6 rounded-[1.8rem] flex items-center space-x-5 shadow-sm border border-gray-50 transition-all ${w.completed ? 'grayscale opacity-30 scale-95' : ''}">
+                    <div class="w-6 h-6 rounded-full border-2 ${w.completed ? 'border-gray-200' : 'border-[#ffb3ba]'} flex items-center justify-center">
+                        ${w.completed ? '<div class="w-3 h-3 bg-gray-200 rounded-full"></div>' : ''}
+                    </div>
+                    <div class="flex-1">
+                        <p class="font-bold text-lg text-gray-700 ${w.completed ? 'line-through' : ''}">${w.text}</p>
+                        <p class="text-[10px] text-gray-400 mt-1 uppercase font-medium tracking-wide">许愿者: ${w.who}${w.completed ? ' | 已完成 on ' + w.completedDate : ''}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderSpecial() {
+            const list = window.state.currentSpecialTab === 'fish' ? window.state.fishItems : window.state.matchaItems;
+            document.getElementById('btn-fish').className = window.state.currentSpecialTab === 'fish' ? 'text-2xl font-bold title-font tab-active transition-all' : 'text-2xl font-bold title-font text-gray-300 transition-all';
+            document.getElementById('btn-matcha').className = window.state.currentSpecialTab === 'matcha' ? 'text-2xl font-bold title-font tab-active transition-all' : 'text-2xl font-bold title-font text-gray-300 transition-all';
+            
+            ['S', 'A', 'B', 'C', 'F'].forEach(t => {
+                const container = document.getElementById(`tier-${t}`);
+                if(!container) { // 第一次初始化 Tier Row
+                    const row = `
+                        <div class="flex rounded-2xl overflow-hidden bg-white shadow-sm border border-gray-50">
+                            <div class="tier-${t.toLowerCase()} w-14 flex items-center justify-center font-bold text-lg">${t === 'F' ? '狗' : t}</div>
+                            <div id="tier-${t}" class="p-4 flex flex-wrap gap-2 flex-1 min-h-[60px] items-center"></div>
+                        </div>
+                    `;
+                    document.getElementById('tier-list-container').insertAdjacentHTML('beforeend', row);
+                }
+                const tierItems = list.filter(item => item.tier === t);
+                document.getElementById(`tier-${t}`).innerHTML = tierItems.map(item => `<span class="bg-gray-50 text-gray-600 px-3 py-1.5 rounded-xl text-xs font-medium border border-gray-100 shadow-sm">${item.name}</span>`).join('');
+                document.getElementById(`tier-${t}`).closest('.flex').style.display = tierItems.length === 0 ? 'none' : 'flex';
+            });
+        }
+    </script>
+</body>
+</html>
